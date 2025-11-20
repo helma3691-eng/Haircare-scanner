@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hair Care Ingredient Scanner</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #f5f5f5;
+    transition: background 0.3s, color 0.3s;
+}
+body.dark-mode {
+    background: #1e1e1e;
+    color: #f5f5f5;
+}
+header {
+    background: #4CAF50;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 28px;
+    font-weight: bold;
+}
+.container {
+    width: 90%;
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    margin-top: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: background 0.3s, color 0.3s;
+}
+body.dark-mode .container {
+    background: #2c2c2c;
+}
+textarea, select, button, input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+button {
+    background: #4CAF50;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+}
+button:hover {
+    background: #45a049;
+}
+#scanner {
+    width: 100%;
+    height: 350px;
+    background: #000;
+}
+.result {
+    margin-top: 20px;
+    padding: 20px;
+    background: #e8ffe8;
+    border-radius: 10px;
+    display: none;
+}
+#loader {
+    display: none;
+    text-align: center;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<header>
+Hair Care Ingredient Scanner
+<button onclick="toggleDarkMode()" style="float:right; font-size:16px;">🌙 Dark Mode</button>
+</header>
+
+<div class="container">
+
+    <h3>Your Hair Type</h3>
+    <select id="hairType">
+        <option value="dry">Dry Hair</option>
+        <option value="oily">Oily Hair</option>
+        <option value="curly">Curly Hair</option>
+        <option value="coily">Coily/Kinky Hair</option>
+        <option value="straight">Straight Hair</option>
+        <option value="color">Color-Treated Hair</option>
+    </select>
+
+    <h3>Paste Ingredients</h3>
+    <textarea id="ingredients" rows="6" placeholder="Paste ingredients here..."></textarea>
+
+    <h3>Upload Ingredients File (.txt)</h3>
+    <input type="file" id="fileInput" accept=".txt">
+
+    <h3>Upload Product Label Image (OCR Extraction)</h3>
+    <input type="file" id="imageInput" accept="image/*">
+
+    <button onclick="scanIngredients()">Scan Ingredients</button>
+
+    <h3>Barcode Scanner</h3>
+    <button onclick="startScanner()">Start Barcode Scanner</button>
+
+    <div id="scanner-container" style="display:none;">
+        <video id="scanner"></video>
+        <button onclick="stopScanner()">Stop Scanner</button>
+        <button onclick="restartScanner()">Scan Again</button>
+        <p><strong>Detected Barcode:</strong> <span id="barcodeOutput">None</span></p>
+    </div>
+
+    <div id="loader">⏳ Scanning... Please wait</div>
+
+    <div id="output" class="result"></div>
+
+</div>
+
+<!-- QuaggaJS Barcode Scanner Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+
+<!-- Tesseract.js for OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<script>
+/* ---------------- DARK MODE ---------------- */
+function toggleDarkMode(){
+    document.body.classList.toggle("dark-mode");
+}
+
+/* ---------------- FILE UPLOAD ---------------- */
+document.getElementById("fileInput").addEventListener("change", function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById("ingredients").value = e.target.result;
+    };
+    reader.readAsText(file);
+});
+
+/* ---------------- OCR IMAGE ---------------- */
+document.getElementById("imageInput").addEventListener("change", function () {
+    const file = this.files[0];
+    if (!file) return;
+    document.getElementById("loader").style.display = "block";
+    Tesseract.recognize(file, "eng", {
+        logger: (m) => console.log(m)
+    }).then(({ data: { text } }) => {
+        document.getElementById("ingredients").value = text;
+        document.getElementById("loader").style.display = "none";
+        alert("Ingredients extracted successfully!");
+    });
+});
+
+/* ---------------- BARCODE SCANNER ---------------- */
+function startScanner() {
+    document.getElementById("scanner-container").style.display = "block";
+    Quagga.init({
+        inputStream: { name: "Live", type: "LiveStream", target: document.querySelector("#scanner") },
+        decoder: { readers: ["ean_reader","ean_8_reader","code_128_reader"] }
+    }, function(err){ if(err){console.error(err); return;} Quagga.start(); });
+    Quagga.onDetected((result)=>{
+        document.getElementById("barcodeOutput").innerText = result.codeResult.code;
+    });
+}
+function stopScanner(){ Quagga.stop(); document.getElementById("scanner-container").style.display = "none"; }
+function restartScanner(){ Quagga.stop(); startScanner(); }
+
+/* ---------------- INGREDIENT SCANNER ---------------- */
+function scanIngredients(){
+    const hairType = document.getElementById("hairType").value;
+    const input = document.getElementById("ingredients").value.toLowerCase();
+    const output = document.getElementById("output");
+
+    if(!input.trim()){ output.style.display="block"; output.innerHTML="<strong>Please enter ingredients.</strong>"; return; }
+
+    const badIngredients=["sulfate","sls","sles","paraben","parfum","synthetic fragrance","petrolatum"];
+    const goodIngredients={
+        dry:["argan oil","shea butter","coconut oil","glycerin","aloe"],
+        oily:["niacinamide","tea tree","salicylic","clay"],
+        curly:["shea butter","coconut oil","jojoba oil","panthenol"],
+        coily:["castor oil","shea butter","olive oil"],
+        straight:["keratin","silk protein","argan oil"],
+        color:["protein","keratin","amino acid","sunflower seed oil"]
+    };
+
+    let foundBad = badIngredients.filter(i=>input.includes(i));
+    let foundGood = goodIngredients[hairType].filter(i=>input.includes(i));
+
+    // Ingredient safety scoring
+    let score = 100 - (foundBad.length * 15) + (foundGood.length * 10);
+    if(score>100) score=100; if(score<0) score=0;
+
+    let html = `<h3>Scan Results</h3>`;
+    html += `<strong>Good for your hair type:</strong> ${foundGood.length ? foundGood.join(", ") : "None detected"}<br><br>`;
+    html += `<strong>Potentially harmful ingredients:</strong> ${foundBad.length ? foundBad.join(", ") : "None detected"}<br><br>`;
+    html += `<strong>Ingredient Safety Score:</strong> ${score}/100<br><br>`;
+
+    const routines={
+        dry:"Moisturizing shampoo + weekly deep conditioner + oils.",
+        oily:"Clarifying shampoo + lightweight conditioner.",
+        curly:"Sulfate-free shampoo + curl cream + leave-in.",
+        coily:"Heavy creams + deep conditioning + protective styles.",
+        straight:"Light oils + smoothing serums.",
+        color:"Color-safe shampoo + protein masks + UV protection."
+    };
+    html+=`<h3>Recommended Routine</h3>${routines[hairType]}`;
+
+    output.style.display="block";
+    output.innerHTML=html;
+}
+</script>
+
+</body>
+</html>
+    
+  </body>
+  
+</html>
